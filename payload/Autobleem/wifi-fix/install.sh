@@ -1,6 +1,6 @@
 #!/bin/sh
 # AutoBleem PSC RTL8188EU WEXT module installer, called from AutoBleem's boot chain.
-# Targeted first build: always configures wlan0 for the tested RTL8188EU adapter.
+# Configure wlan0 only when its USB device is the tested RTL8188EU 0bda:8179.
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 set -eu
 LOG=/tmp/autobleem-rtl8188eu-install.log
@@ -10,6 +10,13 @@ echo "Wi-Fi module setup: $(date)"
 # Run only in the AutoBleem kernel environment, where writes persist on the console.
 if [ ! -e /autobleem ]; then
     echo 'AutoBleem kernel marker absent; skipping.'
+    exit 0
+fi
+wifi_interface=$(readlink -f /sys/class/net/wlan0/device 2>/dev/null || :)
+usb_device=${wifi_interface%%:*}
+if [ -z "$usb_device" ] || [ ! -f "$usb_device/idVendor" ] || [ ! -f "$usb_device/idProduct" ] ||
+   [ "$(cat "$usb_device/idVendor")" != 0bda ] || [ "$(cat "$usb_device/idProduct")" != 8179 ]; then
+    echo 'Tested RTL8188EU USB ID 0bda:8179 is not wlan0; skipping.'
     exit 0
 fi
 command -v systemctl >/dev/null 2>&1 || { echo 'systemctl unavailable; skipping.'; exit 0; }
